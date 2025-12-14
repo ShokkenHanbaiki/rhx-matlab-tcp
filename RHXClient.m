@@ -64,5 +64,36 @@ classdef RHXClient
                 error("Request timeout for command %s\n", payload)
             end
         end
+
+        function inOnlyCommand(obj, payload, args)
+            arguments
+                obj RHXClient
+                payload
+                args.InFormat string = "uint8"
+                args.ErrorWaitMS single = 200
+            end
+
+            write(obj.tcpClient, payload, args.InFormat);
+        end
+
+        function output = flushOutput(obj, args)
+            arguments
+                obj RHXClient
+                args.OutFormat string = "string"
+                args.WaitTimeMS single = 500
+            end
+
+            timerStart = datetime("now");
+
+            while milliseconds(datetime("now") - timerStart) < args.WaitTimeMS && obj.tcpClient.NumBytesAvailable == 0
+                pause(0.1);
+            end
+
+            if obj.tcpClient.NumBytesAvailable > 0
+                output = read(obj.tcpClient, obj.tcpClient.NumBytesAvailable, args.OutFormat);
+            else
+                output = "";
+            end
+        end
     end
 end
