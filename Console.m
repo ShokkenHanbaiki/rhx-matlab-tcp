@@ -50,7 +50,7 @@ classdef Console
                     obj.manualStimTrigger(params);
                 end
 
-                if verb == "AmpStim-Conf"
+                if verb == "Stim-Conf"
                     obj.configureStimulation(params);
                 end
 
@@ -115,7 +115,14 @@ classdef Console
             disp(paramDict);
 
             % pass to server
-            obj.rhxClient.configureAmplifierStimulation(lookup(paramDict, "Channel"), paramDict);
+            if contains(lookup(paramDict, "Channel"), "ANALOG-OUT")
+                fprintf("Sending configuration parameters for manual (analog) stimulation of %s\n", lookup(paramDict, "Channel"));
+                obj.rhxClient.configureAnalogOutStimulation(lookup(paramDict, "Channel"), paramDict);
+            else
+                fprintf("Sending configuration parameters for amplifier stimulation of %s\n", lookup(paramDict, "Channel"));
+                obj.rhxClient.configureAmplifierStimulation(lookup(paramDict, "Channel"), paramDict);
+            end
+            
         end
 
         function obj = toggleStimulation(obj, params)
@@ -126,8 +133,10 @@ classdef Console
 
             if lower(params(2)) == "on"
                 obj.rhxClient.toggleStimEnable(params(1), true);
-            else
+            elseif lower(params(2)) == "off"
                 obj.rhxClient.toggleStimEnable(params(1), false);
+            else
+                fprintf("Ambiguous stimulation state '%s'\n", params(2));
             end
         end
     end

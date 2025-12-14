@@ -122,6 +122,10 @@ classdef RHXClient
                 end
             end
 
+            if isKey(args, "PulseTrainDurationUS")
+                obj.inOnlyCommand(sprintf("set %s.PulseTrainPeriodMicroseconds %s", channel, lookup(args, "PulseTrainDurationUS")));
+            end
+
             if isKey(args, "DurationUS")
                 halfDurationUS = round(lookup(args, "DurationUS") / 2);
                 obj.inOnlyCommand(sprintf("set %s.FirstPhaseDurationMicroseconds %s", channel, halfDurationUS));
@@ -133,7 +137,48 @@ classdef RHXClient
                 obj.inOnlyCommand(sprintf("set %s.SecondPhaseAmplitudeMicroAmps %s", channel, lookup(args, "AmplitudeUA")));
             end
 
-            obj.inOnlyCommand("execute UploadStimParameters");
+            obj.inOnlyCommand(sprintf("set %s.StimEnabled True", channel));
+            % obj.inOnlyCommand("execute UploadStimParameters");
+
+            output = obj.flushOutput();
+            if output ~= ""
+                fprintf("Command completed with potential errors: %s\n", output);
+                err = output;
+            else
+                fprintf("Command completed successfully\n");
+                err = "";
+            end
+        end
+
+        function err = configureAnalogOutStimulation(obj, channel, args)
+            arguments
+                obj RHXClient
+                channel string
+                args dictionary
+            end
+
+            % manual stimulator likely accepts positive-only wave
+            obj.inOnlyCommand(sprintf("set %s.Shape Monophasic", channel));
+            obj.inOnlyCommand(sprintf("set %s.Polarity PositiveFirst", channel));
+
+            % set baseline voltage to 0
+            obj.inOnlyCommand(sprintf("set %s.BaselineVoltageVolts 0", channel));
+
+            if isKey(args, "Source"); obj.inOnlyCommand(sprintf("set %s.Source %s", channel, lookup(args, "Source"))); end
+
+            if isKey(args, "DurationUS")
+                halfDurationUS = round(lookup(args, "DurationUS") / 2);
+                obj.inOnlyCommand(sprintf("set %s.FirstPhaseDurationMicroseconds %s", channel, halfDurationUS));
+                obj.inOnlyCommand(sprintf("set %s.SecondPhaseDurationMicroseconds %s", channel, halfDurationUS));
+            end
+
+            if isKey(args, "AmplitudeV")
+                obj.inOnlyCommand(sprintf("set %s.FirstPhaseAmplitudeVolts %s", channel, lookup(args, "AmplitudeV")));
+                obj.inOnlyCommand(sprintf("set %s.SecondPhaseAmplitudeVolts %s", channel, lookup(args, "AmplitudeV")));
+            end
+            
+            obj.inOnlyCommand(sprintf("set %s.StimEnabled True", channel));
+            % obj.inOnlyCommand("execute UploadStimParameters");
 
             output = obj.flushOutput();
             if output ~= ""
