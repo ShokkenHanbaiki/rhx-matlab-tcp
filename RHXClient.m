@@ -104,41 +104,43 @@ classdef RHXClient
                 args dictionary
             end
 
-            if isKey(args, "Shape"); obj.inOnlyCommand(sprintf("set %s.Shape %s", channel, lookup(args, "Shape"))); end
-            if isKey(args, "Polarity"); obj.inOnlyCommand(sprintf("set %s.Polarity %s", channel, lookup(args, "Polarity"))); end
-            if isKey(args, "Source"); obj.inOnlyCommand(sprintf("set %s.Source %s", channel, lookup(args, "Source"))); end
+            aggregateCommands = [];
+
+            if isKey(args, "Shape"); aggregateCommands = [aggregateCommands, sprintf("set %s.Shape %s", channel, lookup(args, "Shape"))]; end
+            if isKey(args, "Polarity"); aggregateCommands = [aggregateCommands, sprintf("set %s.Polarity %s", channel, lookup(args, "Polarity"))]; end
+            if isKey(args, "Source"); aggregateCommands = [aggregateCommands, sprintf("set %s.Source %s", channel, lookup(args, "Source"))]; end
 
             if isKey(args, "IsPulseTrain")
                 if lookup(args, "IsPulseTrain") == "True"
-                    obj.inOnlyCommand(sprintf("set %s.PulseOrTrain PulseTrain", channel));
+                    aggregateCommands = [aggregateCommands, sprintf("set %s.PulseOrTrain PulseTrain", channel)];
 
                     if ~isKey(args, "NumPulses")
                         error("IsPulseTrain must be supplied with NumPulses");
                     else
-                        obj.inOnlyCommand(sprintf("set %s.NumberOfStimPulses %s", channel, lookup(args, "NumPulses")));
+                        aggregateCommands = [aggregateCommands, sprintf("set %s.NumberOfStimPulses %s", channel, lookup(args, "NumPulses"))];
                     end
                 else
-                    obj.inOnlyCommand(sprintf("set %s.PulseOrTrain SinglePulse", channel));
+                    aggregateCommands = [aggregateCommands, sprintf("set %s.PulseOrTrain SinglePulse", channel)];
                 end
             end
 
             if isKey(args, "PulseTrainDurationUS")
-                obj.inOnlyCommand(sprintf("set %s.PulseTrainPeriodMicroseconds %s", channel, lookup(args, "PulseTrainDurationUS")));
+                aggregateCommands = [aggregateCommands, sprintf("set %s.PulseTrainPeriodMicroseconds %s", channel, lookup(args, "PulseTrainDurationUS"))];
             end
 
             if isKey(args, "DurationUS")
                 halfDurationUS = round(str2double(lookup(args, "DurationUS")) / 2);
-                obj.inOnlyCommand(sprintf("set %s.FirstPhaseDurationMicroseconds %s", channel, num2str(halfDurationUS)));
-                obj.inOnlyCommand(sprintf("set %s.SecondPhaseDurationMicroseconds %s", channel, num2str(halfDurationUS)));
+                aggregateCommands = [aggregateCommands, sprintf("set %s.FirstPhaseDurationMicroseconds %s", channel, num2str(halfDurationUS))];
+                aggregateCommands = [aggregateCommands, sprintf("set %s.SecondPhaseDurationMicroseconds %s", channel, num2str(halfDurationUS))];
             end
 
             if isKey(args, "AmplitudeUA")
-                obj.inOnlyCommand(sprintf("set %s.FirstPhaseAmplitudeMicroAmps %s", channel, lookup(args, "AmplitudeUA")));
-                obj.inOnlyCommand(sprintf("set %s.SecondPhaseAmplitudeMicroAmps %s", channel, lookup(args, "AmplitudeUA")));
+                aggregateCommands = [aggregateCommands, sprintf("set %s.FirstPhaseAmplitudeMicroAmps %s", channel, lookup(args, "AmplitudeUA"))];
+                aggregateCommands = [aggregateCommands, sprintf("set %s.SecondPhaseAmplitudeMicroAmps %s", channel, lookup(args, "AmplitudeUA"))];
             end
 
-            obj.inOnlyCommand(sprintf("set %s.StimEnabled True", channel));
-            % obj.inOnlyCommand("execute UploadStimParameters");
+            aggregateCommands = [aggregateCommands, sprintf("set %s.StimEnabled True", channel)];
+            obj.inOnlyCommand(join(aggregateCommands, "; "));
 
             output = obj.flushOutput();
             if output ~= ""
@@ -157,28 +159,32 @@ classdef RHXClient
                 args dictionary
             end
 
+            aggregateCommands = [];
+
             % manual stimulator likely accepts positive-only wave
-            obj.inOnlyCommand(sprintf("set %s.Shape Monophasic", channel));
-            obj.inOnlyCommand(sprintf("set %s.Polarity PositiveFirst", channel));
+            aggregateCommands = [aggregateCommands, sprintf("set %s.Shape Monophasic", channel)];
+            aggregateCommands = [aggregateCommands, sprintf("set %s.Polarity PositiveFirst", channel)];
 
             % set baseline voltage to 0
-            obj.inOnlyCommand(sprintf("set %s.BaselineVoltageVolts 0", channel));
+            aggregateCommands = [aggregateCommands, sprintf("set %s.BaselineVoltageVolts 0", channel)];
 
-            if isKey(args, "Source"); obj.inOnlyCommand(sprintf("set %s.Source %s", channel, lookup(args, "Source"))); end
+            if isKey(args, "Source"); aggregateCommands = [aggregateCommands, sprintf("set %s.Source %s", channel, lookup(args, "Source"))]; end
 
             if isKey(args, "DurationUS")
                 halfDurationUS = round(str2num(lookup(args, "DurationUS")) / 2);
-                obj.inOnlyCommand(sprintf("set %s.FirstPhaseDurationMicroseconds %s", channel, num2str(halfDurationUS)));
-                obj.inOnlyCommand(sprintf("set %s.SecondPhaseDurationMicroseconds %s", channel, num2str(halfDurationUS)));
+                aggregateCommands = [aggregateCommands, sprintf("set %s.FirstPhaseDurationMicroseconds %s", channel, num2str(halfDurationUS))];
+                aggregateCommands = [aggregateCommands, sprintf("set %s.SecondPhaseDurationMicroseconds %s", channel, num2str(halfDurationUS))];
             end
 
             if isKey(args, "AmplitudeV")
-                obj.inOnlyCommand(sprintf("set %s.FirstPhaseAmplitudeVolts %s", channel, lookup(args, "AmplitudeV")));
-                obj.inOnlyCommand(sprintf("set %s.SecondPhaseAmplitudeVolts %s", channel, lookup(args, "AmplitudeV")));
+                aggregateCommands = [aggregateCommands, sprintf("set %s.FirstPhaseAmplitudeVolts %s", channel, lookup(args, "AmplitudeV"))];
+                aggregateCommands = [aggregateCommands, sprintf("set %s.SecondPhaseAmplitudeVolts %s", channel, lookup(args, "AmplitudeV"))];
             end
             
-            obj.inOnlyCommand(sprintf("set %s.StimEnabled True", channel));
-            % obj.inOnlyCommand("execute UploadStimParameters");
+            aggregateCommands = [aggregateCommands, sprintf("set %s.StimEnabled True", channel)];
+            aggregateCommands = [aggregateCommands, "execute UploadStimParameters"];
+            
+            obj.inOnlyCommand(join(aggregateCommands, "; "));
 
             output = obj.flushOutput();
             if output ~= ""
@@ -205,6 +211,55 @@ classdef RHXClient
                 fprintf("Disabling stimulation for channel %s\n", channel);
             end
             obj.inOnlyCommand(sprintf("set %s.StimEnabled %s", channel, enableString));
+
+            err = obj.flushOutput();
+            if err ~= ""
+                fprintf("Command completed with potential errors: %s\n", err);
+            else
+                fprintf("Command completed successfully\n");
+            end
+        end
+
+        function err = toggleGlobalRecordingState(obj, recordingState)
+            arguments
+                obj RHXClient
+                recordingState string
+            end
+
+            allowedStates = ["run", "record", "stop"];
+            if ~any(recordingState == allowedStates)
+                fprintf("[ERROR] The state %s is illegal; the following are allowed values:\n", recordingState);
+                disp(allowedStates);
+
+                return
+            end
+
+            fprintf("Setting run state to: %s\n", recordingState);
+            obj.inOnlyCommand(sprintf("set RunMode %s", recordingState));
+
+            err = obj.flushOutput();
+            if err ~= ""
+                fprintf("Command completed with potential errors: %s\n", err);
+            else
+                fprintf("Command completed successfully\n");
+            end
+        end
+      
+        function err = toggleChannelRecordingEnabled(obj, channel, recordingEnabled)
+            arguments
+                obj RHXClient
+                channel string
+                recordingEnabled logical
+            end
+
+            if recordingEnabled
+                enableString = "True";
+                fprintf("Enabling recording for channel %s\n", channel);
+            else
+                enableString = "False";
+                fprintf("Disabling recording for channel %s\n", channel);
+            end
+            obj.inOnlyCommand(sprintf("set %s.Enabled %s", channel, enableString));
 
             err = obj.flushOutput();
             if err ~= ""

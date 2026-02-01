@@ -61,10 +61,6 @@ classdef Console
         end
 
         %% commands
-        function obj = getNativeName()
-            
-        end
-
         function obj = manualStimTrigger(obj, params)
             if numel(params) ~= 1
                 fprintf("Invalid number of parameters\n");
