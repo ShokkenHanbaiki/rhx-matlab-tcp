@@ -9,6 +9,7 @@ classdef StimulationManager
 
         totalPulses = -1
         interPulseIntervalUs = -1
+        singlePulseLengthUs = -1
 
         hasSynchronized = false
         currentStimN = -1
@@ -50,6 +51,8 @@ classdef StimulationManager
             obj.configureCommand = confCommand;
             obj.client = client;
 
+            obj.totalPulses = 1;
+
             obj.isAnalog = isAnalog;
             obj.stimChannel = channel;
         end
@@ -86,19 +89,33 @@ classdef StimulationManager
                 error("The key trigger (`Source`) must be a key, F1-F8, written as `KeyPressF1` or similarly");
             end
 
-            if ~isKey(paramDict, "NumPulses")
-                paramDict = insert(paramDict, "NumPulses", num2str(min(256, obj.totalPulses)));
-            else
-                error("Please don't set the `NumPulses` argument when configuring an automatic stimulation; specify this when initializing a StimulationManager instance");
-            end
+            if obj.totalPulses > 1
+                if ~isKey(paramDict, "NumPulses")
+                    paramDict = insert(paramDict, "NumPulses", num2str(min(256, obj.totalPulses)));
+                else
+                    error("Please don't set the `NumPulses` argument when configuring an automatic stimulation; specify this when initializing a StimulationManager instance");
+                end
+    
+                if isKey(paramDict, "PulseTrainDurationUS")
+                    warning("Ignoring `PulseTrainDurationUS` with value %s, will use %d, which was provided in configurePulseTrain()\n", lookup(paramDict, "PulseTrainDurationUS"), obj.interPulseIntervalUs);
+                end
+                if ~isKey(paramDict, "DurationUS")
+                    error("The key `DurationUS` (the duration of a single impulse) is required!");
+                end
+                paramDict("PulseTrainDurationUS") = num2str(obj.interPulseIntervalUs + str2double(lookup(paramDict, "DurationUS")));
 
-            if isKey(paramDict, "PulseTrainDurationUS")
-                warning("Ignoring `PulseTrainDurationUS` with value %s, will use %d, which was provided in configurePulseTrain()\n", lookup(paramDict, "PulseTrainDurationUS"), obj.interPulseIntervalUs);
+                if isKey(paramDict, "IsPulseTrain")
+                    warning("Ignoring `IsPulseTrain` with value %s, since StimulationManager was configured for a pulse train", lookup(paramDict, "IsPulseTrain"));
+                end
+                paramDict("IsPulseTrain") = "True";
+
+                obj.singlePulseLengthUs = obj.interPulseIntervalUs + str2double(lookup(paramDict, "DurationUS"));
+            else
+                if isKey(paramDict, "IsPulseTrain")
+                    warning("Ignoring `IsPulseTrain` with value %s, since StimulationManager was configured for a single pulse", lookup(paramDict, "IsPulseTrain"));
+                end
+                paramDict("IsPulseTrain") = "False";
             end
-            if ~isKey(paramDict, "DurationUS")
-                error("The key `DurationUS` (the duration of a single impulse) is required!");
-            end
-            paramDict("PulseTrainDurationUS") = obj.interPulseIntervalUs + str2double(lookup(paramDict, "DurationUS"));
 
             fprintf("Will synchronize with the following parameters:\n");
             disp(paramDict);
@@ -112,7 +129,7 @@ classdef StimulationManager
             if err == ""
                fprintf("Synchronization successful!\n"); 
             else
-                fprintf("Synchronization encountered errors\n");
+               fprintf("Synchronization encountered errors: %s\n", err);
             end
 
             obj.hasSynchronized = true;
@@ -120,8 +137,10 @@ classdef StimulationManager
         end
 
         function err = stimulate(obj)
+            obj.client.flushOutput(WaitTimeMS=0);
+
             if obj.totalPulses == 1 % single pulse
-                err = obj.client.inOutCommand(sprintf("execute ManualStimTriggerPulse %s", obj.keyTrigger));
+                obj.client.inOnlyCommand(sprintf("execute ManualStimTriggerPulse %s", obj.keyTrigger));
             elseif obj.totalPulses > 1 && obj.interPulseIntervalUs <= 1e6 % greater than 1ms
                 nStimBatches = ceil(obj.totalPulses / 256); % 256 is the internal RHX limit
 
@@ -143,7 +162,7 @@ classdef StimulationManager
                     obj.client.inOnlyCommand(sprintf("execute ManualStimTriggerPulse %s", obj.keyTrigger));
 
                     % wait
-                    pause((obj.interPulseIntervalUs / 1e6) * nStims);
+                    pause((obj.singlePulseLengthUs / 1e6) * nStims);
                 end
 
                 err = obj.client.flushOutput(WaitTimeMS=1000);
@@ -176,6 +195,17 @@ classdef StimulationManager
             end
 
             obj.client.toggleChannelRecordingEnabled(obj.stimChannel, state);
+        end
+
+        function err = executeCustomCommand(obj, command, waitMS)
+            arguments
+                obj StimulationManager
+                command string
+                waitMS single = 2000
+            end
+            obj.client.inOnlyCommand(command);
+
+            err = obj.client.flushOutput(WaitTimeMS=waitMS);
         end
     end
 

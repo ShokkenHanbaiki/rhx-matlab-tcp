@@ -101,3 +101,132 @@ Example 2:
 ```
 Toggle-Stim B-017 off
 ```
+
+# Periodic stimulation using `StimulationManager`
+
+The need may arise to manually configure stimulations directly from MatLab rather than use the console. For this,
+make use of the `StimulationManager` class (hereafter referred to as *manager*). 
+
+Using the manager requires several steps:
+
+1. configure the manager, including how you would like it to stimulate
+2. periodically call the manager to stimulate
+3. perform cleanup after stimulations are complete
+
+## Configuring the manager
+
+Begin by initializing an empty instance of the stimulation manager:
+```
+sm = StimulationManager();
+```
+
+Now, you need to decide if you want the stimulations to be single pulses or pulse trains. In case 
+you want to have a pulse train, but the gap between each pulse should be greater than 1 second, configure
+the manager to stimulate using a single pulse, and call it repeatedly at the inter-pulse interval of your choosing
+(Intan RHX doesn't support pulse trains with a single pulse duration greater than $10^6\mu$s).
+
+Based on this decision, you must call the requisite configuration function for the manager, either `configurePulseTrain` or
+`configureSinglePulse`.
+
+Consult the signatures of these methods within `StimulationManager.m`. Here are explanations for their input parameters.
+
+Arguments common to single pulse and pulse train configs:
+- `client`: an initialized RHXClient instance
+- `confCommand`: a string consisting of arguments you would attach to the *Stim-Conf* verb in the console
+- `channel`: the **native name** of the channel you want to stimulate
+- `isAnalog` (defaults to False): if Intan RHX should stimulate using Analog out
+
+Arguments specific for pulse train configs:
+- `totalPulses`: the total number of pulses in the pulse train
+- `interPulseIntervalUs`: the pause between individual pulses (excluding the length of each individual pulse!) in microseconds. Maximum is $10^6$
+
+When crafting the `confCommand` string, use the same syntax as you would when calling *Stim-Conf*, with the following differences:
+
+- omit the *Stim-Conf* verb at the beginning
+- omit the following arguments, which will be filled in automatically: NumPulses, PulseTrainDurationUS, IsPulseTrain
+- when configuring a pulse train, you must include the following: DurationUS
+
+*Note: DurationUS refers to the duration of each individual pulse, while the function argument interPulseIntervalUs refers to the 
+pause between individual pulses. Therefore, Intan's PulseTrainDurationUS will be equal to DurationUS + interPulseIntervalUS*
+
+To perform the configuration and send the information to Intan RHX (which must be done prior to stimulation), you must first
+call the configuration function, then the synchronize function, as follows:
+```
+sm = sm.configureSinglePulse(client, "Shape=Biphasic Source=KeyPressF1 DurationUS=500 AmplitudeUA=50", "A-001");
+sm = sm.synchronizeConfiguration();
+```
+
+or 
+
+```
+sm = StimulationManager().configurePulseTrain(client, "Shape=Biphasic Source=KeyPressF1 DurationUS=500 AmplitudeUA=50", "A-001", 500, 100);
+sm = sm.synchronizeConfiguration();
+```
+
+Note that it is **very important** that you don't omit the assignment (`sm = sm.configure...`), so that internal properties of the manager
+filled in during configuration can be accessed later when stimulating.
+
+## Stimulating
+
+Stimulating is relatively simple once you have successfully run the configuration script. In your timer's tick function,
+place the following command:
+```
+sm.stimulate();
+```
+
+This command doesn't return a manager object, so don't assign its result back to `sm`.
+
+## Other useful functions
+
+Either during cleanup, during stimulation preparation or before each stimulation, you can use other manager commands:
+- `setGlobalRecordingState`, which accepts either "stop", "run" or "record"
+- `toggleRecordingEnabled`, which accepts a boolean and toggles recording for the chosen channel
+- `executeCustomCommand`, which accepts a string command and an optional integer indicating how long to wait for a response. Use this to execute any custom command you wish
+
+## Complete example
+
+The following code can be placed in `main.m` to reproduce a basic example of stimulating using `StimulationManager`:
+```
+function main()
+    client = RHXClient(ServerPort=5000);
+
+    % timer setup
+    t = timer;
+
+    t.Period = 5;
+    t.TasksToExecute = 5;
+    t.ExecutionMode = "fixedSpacing";
+
+    % first, we must set up the stimulation manager. We can't use
+    % t.StartFcn for this, because we need to work with a shared instance
+    % of StimulationManager
+    
+    sm = StimulationManager().configurePulseTrain(client, "Shape=Biphasic Source=KeyPressF1 IsPulseTrain=True DurationUS=500 AmplitudeUA=50", "A-001", 500, 100);
+    sm = sm.synchronizeConfiguration();
+
+    sm = sm.setGlobalRecordingState("run").toggleRecordingEnabled(true);
+
+    % configure the tick and end function with the stim manager
+    t.TimerFcn = {@timerTick, sm};
+    t.StopFcn = {@timerStop, sm};
+
+    % then, we can start the timer
+    start(t);
+end
+
+function timerTick(timer, eventData, sm)
+    % this code would be run on every tick of the timer.
+    fprintf("Stimulating\n");
+    sm.stimulate();
+    fprintf("Stimulation finished\n");
+end
+
+function timerStop(timer, eventData, sm)
+    % you can include some cleanup code here if you want to (like turning off recording to save space)
+    sm.setGlobalRecordingState("stop");
+
+    fprintf("Timer finished!\n");
+end
+```
+
+
