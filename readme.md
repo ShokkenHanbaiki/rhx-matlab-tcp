@@ -144,6 +144,7 @@ When crafting the `confCommand` string, use the same syntax as you would when ca
 
 - omit the *Stim-Conf* verb at the beginning
 - omit the following arguments, which will be filled in automatically: NumPulses, PulseTrainDurationUS, IsPulseTrain
+- when configuring a single pulse or a pulse train, you must include the Source key, set to KeyPressF1-F8 (other input sources are not supported)
 - when configuring a pulse train, you must include the following: DurationUS
 
 *Note: DurationUS refers to the duration of each individual pulse, while the function argument interPulseIntervalUs refers to the 
@@ -179,8 +180,8 @@ This command doesn't return a manager object, so don't assign its result back to
 ## Other useful functions
 
 Either during cleanup, during stimulation preparation or before each stimulation, you can use other manager commands:
-- `setGlobalRecordingState`, which accepts either "stop", "run" or "record"
-- `toggleRecordingEnabled`, which accepts a boolean and toggles recording for the chosen channel
+- `setGlobalRecordingState`, which accepts either "stop", "run" or "record" (this is like clicking the green "run" button or the red "record" button on the top bar in Intan RHX)
+- `toggleRecordingEnabled`, which accepts a boolean and toggles recording for the chosen channel (enables or disables recording for a given channel; to actually start the recording, use `setGlobalRecordingState("record")`)
 - `executeCustomCommand`, which accepts a string command and an optional integer indicating how long to wait for a response. Use this to execute any custom command you wish
 
 ## Complete example
